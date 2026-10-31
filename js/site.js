@@ -43,6 +43,7 @@
     }
     restartTyping();
     updateCarousel();
+    splitName();
   }
 
   var toggle = $("#lang-toggle");
@@ -55,8 +56,8 @@
   /* ---------------- typed role line ---------------- */
   var typedEl = $("#typed");
   var ROLES = {
-    ar: ["مختبر جودة برمجيات (ويب وموبايل)", "نظم معلومات جغرافية وCAD", "إدخال بيانات بالعربية والإنجليزية", "أبني أدواتي بالذكاء الاصطناعي"],
-    en: ["QA Tester (Web & Mobile)", "GIS & CAD: ArcGIS Pro, QGIS, Civil 3D", "Data entry in Arabic & English", "Building my own tools with AI"]
+    ar: ["مطوّر GIS \u200f(ArcGIS Pro · ArcPy)", "أتمتة التحليل المكاني بـ Python", "مختبر جودة برمجيات (ويب وموبايل)", "AutoCAD وCivil 3D والمساحة", "أبني أدواتي بالذكاء الاصطناعي"],
+    en: ["GIS Developer (ArcGIS Pro · ArcPy)", "Automating spatial analysis with Python", "QA Engineer (Web & Mobile)", "AutoCAD, Civil 3D & surveying", "Building my own tools with AI"]
   };
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var tTimer = null, tRole = 0, tChar = 0, tDeleting = false;
@@ -132,15 +133,16 @@
   /* ---------------- carousel ---------------- */
   var track = $("#car-track");
   var prevB = $("#car-prev"), nextB = $("#car-next"), countEl = $("#car-count"), progEl = $("#car-progress");
+  function visibleItems() { return track ? Array.prototype.filter.call(track.children, function (li) { return !li.hidden; }) : []; }
   function step() {
-    var item = track && track.firstElementChild;
+    var item = visibleItems()[0];
     if (!item) return 0;
     var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
     return item.getBoundingClientRect().width + gap;
   }
   function updateCarousel() {
     if (!track) return;
-    var total = track.children.length;
+    var total = visibleItems().length;
     var max = track.scrollWidth - track.clientWidth;
     var pos = Math.abs(track.scrollLeft);
     var s = step() || 1;
@@ -162,6 +164,19 @@
     var raf = 0;
     track.addEventListener("scroll", function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(updateCarousel); }, { passive: true });
     window.addEventListener("resize", updateCarousel);
+    $$(".pfilter button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var f = b.getAttribute("data-f");
+        $$(".pfilter button").forEach(function (x) { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        Array.prototype.forEach.call(track.children, function (li, i) {
+          var show = f === "all" || li.getAttribute("data-cat") === f;
+          li.hidden = !show;
+          if (show && motion) { li.classList.remove("pop"); void li.offsetWidth; li.style.setProperty("--d", (i % 6) * 55 + "ms"); li.classList.add("pop"); }
+        });
+        track.scrollLeft = 0;
+        updateCarousel();
+      });
+    });
     track.addEventListener("keydown", function (e) {
       if (e.target !== track) return;
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -433,64 +448,91 @@
     });
   });
 
-  /* ---------------- hero constellation ---------------- */
+  /* ---------------- hero: live topographic field (marching squares) ---------------- */
   var cv = $("#hero-canvas");
   if (cv && cv.getContext) (function () {
     var ctx = cv.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1);
-    var W = 0, H = 0, pts = [], raf = 0, running = false;
-    var par = { x: 0, y: 0, tx: 0, ty: 0 }, mouse = { x: -9999, y: -9999 };
-    var COLORS = ["196,181,253", "147,197,253", "125,211,252", "255,255,255", "244,114,182"];
-    function seed() {
-      var n = Math.round(Math.max(26, Math.min(80, (W * H) / 13000)));
-      pts = [];
-      for (var i = 0; i < n; i++) pts.push({
-        x: Math.random() * W, y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
-        r: 0.6 + Math.random() * 1.5, z: 0.25 + Math.random() * 0.75,
-        c: COLORS[(Math.random() * COLORS.length) | 0], ph: Math.random() * 6.28
-      });
+    var W = 0, H = 0, raf = 0, running = false, CELL = 16, cols = 0, rows = 0, field = null;
+    var mouse = { x: -9999, y: -9999, sx: -9999, sy: -9999 }, frame = 0;
+    var hE = $("#hud-e"), hN = $("#hud-n"), hZ = $("#hud-z"), hS = $("#hud-s");
+    var LEVELS = 11;
+    function h(x, y, t) {
+      var v = 0.5
+        + 0.22 * Math.sin(x * 0.0042 + t * 0.00011) * Math.cos(y * 0.0051 - t * 0.00009)
+        + 0.16 * Math.sin((x + y) * 0.0031 + 1.7 + t * 0.00007)
+        + 0.10 * Math.cos(x * 0.0093 - y * 0.0061 + t * 0.00013)
+        + 0.05 * Math.sin(x * 0.019 + y * 0.017 - t * 0.0002);
+      var dx = x - mouse.sx, dy = y - mouse.sy;
+      v += 0.17 * Math.exp(-(dx * dx + dy * dy) / 26000);
+      return v;
     }
     function resize() {
       var r = cv.getBoundingClientRect();
       if (!r.width) return;
       W = r.width; H = r.height;
+      CELL = W < 700 ? 20 : 16;
       cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      seed(); draw(0, false);
+      cols = Math.ceil(W / CELL) + 1; rows = Math.ceil(H / CELL) + 1;
+      field = new Float32Array(cols * rows);
+      draw(performance.now());
     }
-    function draw(t, move) {
+    function lerp(a, b, l) { return (l - a) / (b - a); }
+    function draw(t) {
+      var i, j, k;
+      for (j = 0; j < rows; j++) for (i = 0; i < cols; i++) field[j * cols + i] = h(i * CELL, j * CELL, t);
       ctx.clearRect(0, 0, W, H);
-      par.x += (par.tx - par.x) * 0.05; par.y += (par.ty - par.y) * 0.05;
-      var P = [], i, j, p;
-      for (i = 0; i < pts.length; i++) {
-        p = pts[i];
-        if (move) {
-          p.x += p.vx; p.y += p.vy;
-          if (p.x < -20) p.x = W + 20; else if (p.x > W + 20) p.x = -20;
-          if (p.y < -20) p.y = H + 20; else if (p.y > H + 20) p.y = -20;
+      for (k = 1; k <= LEVELS; k++) {
+        var lv = 0.08 + k * 0.075, index = k % 5 === 0;
+        ctx.beginPath();
+        for (j = 0; j < rows - 1; j++) for (i = 0; i < cols - 1; i++) {
+          var a = field[j * cols + i], b = field[j * cols + i + 1], c = field[(j + 1) * cols + i + 1], d = field[(j + 1) * cols + i];
+          var idx = (a > lv ? 8 : 0) | (b > lv ? 4 : 0) | (c > lv ? 2 : 0) | (d > lv ? 1 : 0);
+          if (idx === 0 || idx === 15) continue;
+          var x = i * CELL, y = j * CELL;
+          var T = [x + CELL * lerp(a, b, lv), y], R = [x + CELL, y + CELL * lerp(b, c, lv)],
+              B = [x + CELL * lerp(d, c, lv), y + CELL], L = [x, y + CELL * lerp(a, d, lv)];
+          var segs;
+          switch (idx) {
+            case 1: case 14: segs = [L, B]; break;
+            case 2: case 13: segs = [B, R]; break;
+            case 3: case 12: segs = [L, R]; break;
+            case 4: case 11: segs = [T, R]; break;
+            case 5: segs = [L, T, B, R]; break;
+            case 6: case 9: segs = [T, B]; break;
+            case 7: case 8: segs = [L, T]; break;
+            case 10: segs = [L, B, T, R]; break;
+          }
+          for (var s2 = 0; s2 < segs.length; s2 += 2) { ctx.moveTo(segs[s2][0], segs[s2][1]); ctx.lineTo(segs[s2 + 1][0], segs[s2 + 1][1]); }
         }
-        P.push({ x: p.x - par.x * 40 * p.z, y: p.y - par.y * 30 * p.z, p: p });
+        var hue = k / LEVELS;
+        ctx.strokeStyle = index ? "rgba(125,211,252,.42)" : "rgba(" + Math.round(139 + 30 * hue) + "," + Math.round(120 + 60 * hue) + ",250," + (0.10 + 0.10 * hue).toFixed(3) + ")";
+        ctx.lineWidth = index ? 1.25 : 0.8;
+        ctx.stroke();
       }
-      ctx.lineWidth = 0.7;
-      for (i = 0; i < P.length; i++) for (j = i + 1; j < P.length; j++) {
-        var dx = P[i].x - P[j].x, dy = P[i].y - P[j].y, d2 = dx * dx + dy * dy;
-        if (d2 < 12100) {
-          ctx.strokeStyle = "rgba(167,139,250," + ((1 - d2 / 12100) * 0.28 * Math.min(P[i].p.z, P[j].p.z)).toFixed(3) + ")";
-          ctx.beginPath(); ctx.moveTo(P[i].x, P[i].y); ctx.lineTo(P[j].x, P[j].y); ctx.stroke();
+      if (mouse.x > -999) {
+        var mx = mouse.x, my = mouse.y;
+        ctx.strokeStyle = "rgba(125,211,252,.35)"; ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, H); ctx.moveTo(0, my); ctx.lineTo(W, my); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = "rgba(125,211,252,.9)";
+        ctx.beginPath(); ctx.arc(mx, my, 7, 0, 6.283); ctx.stroke();
+        ctx.beginPath(); ctx.arc(mx, my, 1.8, 0, 6.283); ctx.fillStyle = "#7dd3fc"; ctx.fill();
+        if ((frame & 3) === 0 && hE) {
+          hE.textContent = Math.round(590700 + mx * 1.6).toLocaleString("en-US");
+          hN.textContent = Math.round(2981800 - my * 1.6).toLocaleString("en-US");
+          hZ.textContent = Math.round(h(mx, my, t) * 180);
         }
-      }
-      for (i = 0; i < P.length; i++) {
-        var q = P[i], mx = q.x - mouse.x, my = q.y - mouse.y, md = mx * mx + my * my;
-        if (md < 25000) {
-          ctx.strokeStyle = "rgba(125,211,252," + ((1 - md / 25000) * 0.45).toFixed(3) + ")";
-          ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
-        }
-        var tw = 0.55 + 0.45 * Math.sin(t * 0.0018 + q.p.ph);
-        ctx.fillStyle = "rgba(" + q.p.c + "," + (0.35 + 0.6 * tw * q.p.z).toFixed(3) + ")";
-        ctx.beginPath(); ctx.arc(q.x, q.y, q.p.r * (0.8 + q.p.z * 0.6), 0, 6.283); ctx.fill();
       }
     }
-    function loop(t) { if (!running) return; draw(t, true); raf = requestAnimationFrame(loop); }
+    function loop(t) {
+      if (!running) return;
+      frame++;
+      mouse.sx += (mouse.x - mouse.sx) * 0.08; mouse.sy += (mouse.y - mouse.sy) * 0.08;
+      if (frame & 1) draw(t);
+      raf = requestAnimationFrame(loop);
+    }
     function setRun(on) {
       if (!motion) return;
       if (on && !running) { running = true; raf = requestAnimationFrame(loop); }
@@ -499,14 +541,169 @@
     resize();
     var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(resize, 150); });
     if (motion) {
-      window.addEventListener("pointermove", function (e) {
-        if (!running) return;
+      var hero = $(".hero");
+      hero.addEventListener("pointermove", function (e) {
         var r = cv.getBoundingClientRect();
         mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
-        par.tx = mouse.x / W - 0.5; par.ty = mouse.y / H - 0.5;
+        if (mouse.sx < -999) { mouse.sx = mouse.x; mouse.sy = mouse.y; }
+      }, { passive: true });
+      hero.addEventListener("pointerleave", function () { mouse.x = -9999; mouse.y = -9999; });
+      window.addEventListener("scroll", function () {
+        if (hS) hS.textContent = (25000 + Math.round(window.scrollY * 12 / 500) * 500).toLocaleString("en-US");
       }, { passive: true });
       watch(cv, setRun, 0.01);
     }
+  })();
+
+  /* ---------------- intro curtain ---------------- */
+  (function () {
+    var intro = $("#intro");
+    if (!intro) return;
+    var seen = false; try { seen = sessionStorage.getItem("zyad-intro") === "1"; } catch (e) { /* ignore */ }
+    if (!motion || seen) { intro.remove(); return; }
+    try { sessionStorage.setItem("zyad-intro", "1"); } catch (e) { /* ignore */ }
+    root.classList.add("intro-on");
+    setTimeout(function () { intro.classList.add("out"); root.classList.remove("intro-on"); }, 1250);
+    setTimeout(function () { intro.remove(); }, 2100);
+  })();
+
+  /* ---------------- hero name: word-by-word reveal ---------------- */
+  function splitName() {
+    var el = $(".split-name");
+    if (!el || !motion) return;
+    var words = el.textContent.trim().split(/\s+/);
+    el.setAttribute("aria-label", el.textContent.trim());
+    el.innerHTML = words.map(function (w, i) { return '<span class="w" aria-hidden="true"><span style="--wi:' + i + '">' + w + "</span></span>"; }).join(" ");
+  }
+
+  /* ---------------- portrait + section parallax ---------------- */
+  if (motion && !reduce) (function () {
+    var par = $$("[data-parallax]");
+    var tickP = false;
+    function up() {
+      tickP = false;
+      var y = window.scrollY;
+      par.forEach(function (el) { el.style.transform = "translate3d(0," + (y * -0.12).toFixed(1) + "px,0)"; });
+    }
+    window.addEventListener("scroll", function () { if (!tickP) { tickP = true; requestAnimationFrame(up); } }, { passive: true });
+  })();
+
+  /* ---------------- GeoPilot live demo ---------------- */
+  (function () {
+    var box = $("#geopilot"); if (!box) return;
+    var svg = $("#gp-svg"), cG = $("#gp-contours"), lay = $("#gp-layer"), stepsEl = $("#gp-steps"), codeEl = $("#gp-code"),
+        prog = $("#gp-prog"), pct = $("#gp-pct"), legT = $("#gp-leg-t"), leg = $("#gp-leg");
+    var NS = "http://www.w3.org/2000/svg";
+    function el(n, at) { var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e; }
+    // static terrain contours
+    (function () {
+      var peaks = [[170, 130, 1], [420, 250, .8], [470, 90, .6]];
+      for (var p = 0; p < peaks.length; p++) for (var r = 1; r <= 6; r++) {
+        var pts = [], R = r * 26 * peaks[p][2] + 8;
+        for (var a = 0; a <= 64; a++) {
+          var th = a / 64 * 6.283, w = 1 + .14 * Math.sin(3 * th + p) + .08 * Math.sin(5 * th + r);
+          pts.push((peaks[p][0] + Math.cos(th) * R * w * 1.25).toFixed(1) + "," + (peaks[p][1] + Math.sin(th) * R * w).toFixed(1));
+        }
+        cG.appendChild(el("polyline", { points: pts.join(" "), "stroke-width": r % 5 === 0 ? 1.4 : .8 }));
+      }
+    })();
+    var PK = {
+      hydro: {
+        leg: "Stream order", sw: [["#38bdf8", "1"], ["#3b82f6", "2"], ["#6366f1", "3"], ["#a78bfa", "4"]],
+        steps: ["Fill sinks", "Flow direction (D8)", "Flow accumulation", "Stream threshold > 5000", "Stream order (Strahler)", "Watersheds from outlets", "Symbolize + legend"],
+        code: 'from arcpy.sa import *\nfilled = Fill("DEM_30m")\nfdir = FlowDirection(filled)\nfacc = FlowAccumulation(fdir)\nstr_ = Con(facc > 5000, 1)\nStreamToFeature(StreamOrder(str_, fdir),\n                fdir, "streams")',
+        draw: function () {
+          var paths = [["M60 40 C110 90 130 150 210 190 S330 250 380 330", 4, "#a78bfa"], ["M150 20 C160 80 190 130 210 190", 2.4, "#6366f1"], ["M300 60 C290 130 330 200 330 250", 2.4, "#6366f1"], ["M560 40 C500 90 470 160 420 220 S390 300 380 330", 3, "#3b82f6"], ["M520 180 C480 200 450 210 420 220", 1.6, "#38bdf8"], ["M250 300 C300 290 340 300 370 320", 1.4, "#38bdf8"], ["M90 160 C130 170 170 180 210 190", 1.4, "#38bdf8"]];
+          return paths.map(function (d) { return el("path", { d: d[0], stroke: d[2], "stroke-width": d[1], "stroke-linecap": "round", pathLength: 1, class: "gp-draw" }); });
+        }
+      },
+      net: {
+        leg: "Drive time", sw: [["#34d399", "5 min"], ["#fbbf24", "10 min"], ["#f472b6", "15 min"]],
+        steps: ["Load road network dataset", "Add facilities (hospitals)", "Service area 5 / 10 / 15 min", "Dissolve overlapping polygons", "Coverage % per district", "Symbolize + legend"],
+        code: 'import arcpy\nsa = arcpy.nax.ServiceArea("Roads_ND")\nsa.defaultImpedanceCutoffs = [5, 10, 15]\nsa.load(arcpy.nax.ServiceAreaInputDataType.Facilities,\n        "Hospitals")\nres = sa.solve()\nres.export(arcpy.nax.ServiceAreaOutputDataType.Polygons,\n           "SA_Polygons")',
+        draw: function () {
+          var o = [];
+          [[300, 190, 150, "#f472b6"], [300, 190, 100, "#fbbf24"], [300, 190, 55, "#34d399"]].forEach(function (c) {
+            o.push(el("ellipse", { cx: c[0], cy: c[1], rx: c[2] * 1.3, ry: c[2], fill: c[3], "fill-opacity": .14, stroke: c[3], "stroke-opacity": .7, class: "gp-grow" }));
+          });
+          ["M0 190H600", "M300 0V380", "M80 40L520 340", "M100 330L500 60"].forEach(function (d) { o.push(el("path", { d: d, stroke: "#e2e8f0", "stroke-opacity": .35, "stroke-width": 1.2, pathLength: 1, class: "gp-draw" })); });
+          o.push(el("circle", { cx: 300, cy: 190, r: 6, fill: "#fff", class: "gp-grow" }));
+          return o;
+        }
+      },
+      topo: {
+        leg: "Cut / fill (m)", sw: [["#f87171", "cut"], ["#e2e8f0", "0"], ["#34d399", "fill"]],
+        steps: ["TIN from survey points", "DEM 1 m + hillshade", "Slope + aspect", "Design surface (+2.5 m)", "Cut / fill volumes", "Profile along alignment", "Report to table"],
+        code: 'from arcpy.sa import *\nslope = Slope("DEM_1m", "DEGREE")\nhs = Hillshade("DEM_1m", 315, 45)\narcpy.ddd.CutFill("DEM_1m",\n    "Design_Surface", "CutFill")\n# volumes -> attribute table',
+        draw: function () {
+          var o = [];
+          for (var i = 0; i < 12; i++) for (var j = 0; j < 8; j++) {
+            var v = Math.sin(i * .7) * Math.cos(j * .9);
+            o.push(el("rect", { x: 60 + i * 40, y: 30 + j * 40, width: 38, height: 38, rx: 4, fill: v > .2 ? "#f87171" : v < -.2 ? "#34d399" : "#e2e8f0", "fill-opacity": .08 + Math.abs(v) * .32, class: "gp-grow", style: "transition-delay:" + ((i + j) * 25) + "ms" }));
+          }
+          o.push(el("path", { d: "M40 300 C150 250 260 330 360 260 S520 200 580 240", stroke: "#fbbf24", "stroke-width": 2.5, pathLength: 1, class: "gp-draw" }));
+          return o;
+        }
+      },
+      util: {
+        leg: "Network check", sw: [["#34d399", "valid"], ["#fbbf24", "slope"], ["#f87171", "gap"]],
+        steps: ["Load water + sewer lines", "Snap tolerance 0.05 m", "Find dangles + gaps", "Check slope per pipe", "Manhole depth rules", "Write flags to attributes"],
+        code: 'import arcpy\nfor row in arcpy.da.SearchCursor(\n        "Sewer_Lines", ["OID@", "SLOPE"]):\n    if row[1] < 0.004:\n        flag(row[0], "slope < 0.4%")\narcpy.management.Integrate("Sewer_Lines",\n                           "0.05 Meters")',
+        draw: function () {
+          var o = [], nodes = [[90, 80], [220, 90], [340, 110], [470, 90], [220, 210], [340, 230], [470, 220], [340, 330]];
+          var edges = [[0, 1, "#34d399"], [1, 2, "#34d399"], [2, 3, "#fbbf24"], [1, 4, "#34d399"], [4, 5, "#34d399"], [5, 6, "#34d399"], [2, 5, "#34d399"], [5, 7, "#f87171"]];
+          edges.forEach(function (e) { var a = nodes[e[0]], b = nodes[e[1]]; o.push(el("path", { d: "M" + a + "L" + b, stroke: e[2], "stroke-width": 3, pathLength: 1, class: "gp-draw" })); });
+          nodes.forEach(function (n, i) { o.push(el("circle", { cx: n[0], cy: n[1], r: 6, fill: "#0b0b26", stroke: i === 7 ? "#f87171" : "#7dd3fc", "stroke-width": 2, class: "gp-grow" })); });
+          return o;
+        }
+      }
+    };
+    var cur = "hydro", token = 0, auto = true;
+    function setLegend(pk) {
+      legT.textContent = pk.leg;
+      leg.innerHTML = pk.sw.map(function (s) { return '<span><i style="background:' + s[0] + '"></i>' + s[1] + "</span>"; }).join("");
+    }
+    function final(name) {
+      var pk = PK[name];
+      setLegend(pk);
+      stepsEl.innerHTML = pk.steps.map(function (s) { return '<li class="ok"><b>✓</b>' + s + "</li>"; }).join("");
+      codeEl.textContent = pk.code;
+      lay.innerHTML = ""; pk.draw().forEach(function (n) { lay.appendChild(n); });
+      $$(".gp-draw,.gp-grow", lay).forEach(function (n) { n.classList.add("on"); });
+      prog.style.width = "100%"; pct.textContent = "100%";
+    }
+    async function run(name, my) {
+      var pk = PK[name];
+      setLegend(pk);
+      lay.innerHTML = ""; codeEl.textContent = "";
+      stepsEl.innerHTML = pk.steps.map(function (s) { return "<li><b>·</b>" + s + "</li>"; }).join("");
+      prog.style.width = "0%"; pct.textContent = "0%";
+      var lis = $$("li", stepsEl);
+      for (var i = 0; i < lis.length; i++) {
+        if (my !== token) return;
+        lis[i].classList.add("run"); $("b", lis[i]).textContent = "◌";
+        await wait(420);
+        if (my !== token) return;
+        lis[i].classList.remove("run"); lis[i].classList.add("ok"); $("b", lis[i]).textContent = "✓";
+        var p = Math.round((i + 1) / lis.length * 100); prog.style.width = p + "%"; pct.textContent = p + "%";
+      }
+      var nodes = pk.draw(); nodes.forEach(function (n) { lay.appendChild(n); });
+      requestAnimationFrame(function () { requestAnimationFrame(function () { nodes.forEach(function (n) { n.classList.add("on"); }); }); });
+      for (var c = 1; c <= pk.code.length; c++) { if (my !== token) return; codeEl.textContent = pk.code.slice(0, c); if (c % 2 === 0) await wait(12); }
+      await wait(3800);
+      if (my !== token || !auto) return;
+      var keys = Object.keys(PK); select(keys[(keys.indexOf(name) + 1) % keys.length], false);
+    }
+    function select(name, user) {
+      cur = name; if (user) auto = false;
+      $$(".gp-pk", box).forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-pk") === name); });
+      token++;
+      if (motion && inView) run(name, token); else final(name);
+    }
+    $$(".gp-pk", box).forEach(function (b) { b.addEventListener("click", function () { select(b.getAttribute("data-pk"), true); }); });
+    var inView = false;
+    final(cur);
+    if (motion) watch(box, function (on) { inView = on; token++; if (on) run(cur, token); else final(cur); }, 0.3);
   })();
 
   /* ---------------- track signature visuals ---------------- */
