@@ -1090,3 +1090,31 @@ html:not(.motion) .sec-head .h2::after{content:"";display:block;height:3px;width
 .gp-shot span{padding:0 10px 10px;font-size:13px;color:var(--ink-2)}
 @media (max-width:1100px){.gp-facts{grid-template-columns:repeat(3,minmax(0,1fr))}.gp-shots{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:560px){.gp-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.gp-shots{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Python & GitHub section (added Nov 2026) */
+.gh-feat{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0;overflow:hidden;padding:0;border-radius:var(--r-xl)}
+.gh-shot{display:block;padding:0;border:0;background:#070b1d;cursor:pointer;position:relative;overflow:hidden}
+.gh-shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.gh-shot:hover img,.gh-shot:focus-visible img{transform:scale(1.03)}
+.gh-feat .gh-shot{border-inline-end:1px solid var(--line);min-height:100%}
+.gh-body{display:flex;flex-direction:column;gap:12px;padding:26px 28px;align-items:flex-start}
+.gh-body .tag{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--k-gis);border:1px solid var(--line);border-radius:999px;padding:4px 10px;direction:ltr}
+.gh-card.k-qa .gh-body .tag{color:var(--k-qa)}.gh-card.k-ai .gh-body .tag{color:var(--k-ai)}
+.gh-body h3{margin:0;font-size:1.35rem}
+.gh-body p{margin:0;color:var(--ink-2);line-height:1.8}
+.gh-facts{list-style:none;margin:2px 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%}
+.gh-facts li{border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;background:var(--glass)}
+.gh-facts b{display:block;font-family:var(--f-display);font-size:20px;color:#fff;direction:ltr;text-align:start}
+.gh-facts span{font-size:12.5px;color:var(--ink-2)}
+.gh-code{margin:0;width:100%;border:1px solid var(--line);border-radius:var(--r-md);background:#0a0e22;overflow:hidden}
+.gh-code figcaption{font-family:var(--f-mono);font-size:12px;color:var(--ink-2);padding:8px 14px;border-bottom:1px solid var(--line)}
+.gh-code pre{margin:0;padding:12px 14px;font:12.5px/1.65 var(--f-mono);color:#cdd6f4;overflow-x:auto;text-align:left}
+.gh-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:20px}
+.gh-card{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.gh-card .gh-shot{aspect-ratio:16/10;border-bottom:1px solid var(--line)}
+.gh-card .gh-body{flex:1}.gh-card .gh-body .tl-link{margin-top:auto}
+@media (max-width:1000px){.gh-feat{grid-template-columns:minmax(0,1fr)}.gh-feat .gh-shot{border-inline-end:0;border-bottom:1px solid var(--line);aspect-ratio:16/10}.gh-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.gh-facts{grid-template-columns:minmax(0,1fr)}}
+.gh-feat{align-items:center;background:var(--glass)}
+.gh-feat .gh-shot{align-self:stretch;display:flex;align-items:center;justify-content:center;padding:22px;background:#070b1d}
+.gh-feat .gh-shot img{height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 24px 60px -24px rgba(0,0,0,.8)}
