@@ -10,7 +10,8 @@
   function setStored(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage unavailable */ } }
 
   /* ---------------- language ---------------- */
-  var lang = getStored() === "en" ? "en" : "ar";
+  var urlLang = null; try { urlLang = new URLSearchParams(location.search).get("lang"); } catch (e) { /* old browser */ }
+  var lang = (urlLang === "en" || urlLang === "ar") ? urlLang : (getStored() === "en" ? "en" : "ar");
   var ATTRS = ["placeholder", "aria-label", "alt", "title", "content"];
 
   // cache the Arabic (default) values once
