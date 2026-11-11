@@ -1059,3 +1059,34 @@ html:not(.motion) .sec-head .h2::after{content:"";display:block;height:3px;width
 .tcard:hover .tc-photo img{transform:scale(1.06)}
 .k-gis .tc-photo img{object-position:50% 40%}
 .tcard{grid-template-rows:auto auto}
+
+/* certificates: summary chips + meta line (added Nov 2026) */
+.cert-stats{display:flex;flex-wrap:wrap;gap:8px;align-self:flex-end}
+.cert-stats span{display:inline-flex;align-items:baseline;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--glass);font-family:var(--f-mono);font-size:12px;color:var(--ink-2);letter-spacing:.04em}
+.cert-stats b{font-family:var(--f-display);font-size:15px;color:#fff}
+.cert .c-meta{display:block;margin-top:6px;font-size:12px;line-height:1.6;color:var(--ink-2);overflow-wrap:anywhere}
+.cert .c-meta:lang(en),[dir=ltr] .cert .c-meta{font-family:var(--f-mono)}
+.chip[href]{text-decoration:none;color:inherit}
+.chip[href]:hover{border-color:var(--k-gis,#22d3ee)}
+.cert-group{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--k-gis);margin:0 0 14px}
+.cert-grid+.cert-group{margin-top:34px}
+.cert-grid-land .cert .thumb{aspect-ratio:1.414/1;background:#f4f2ec}
+.cert-grid-land .cert .thumb img{object-fit:contain;object-position:50% 50%;padding:6px}
+.cert-grid-land .cert .thumb::after{background:linear-gradient(180deg,transparent 80%,rgba(6,8,25,.18))}
+.cert .c-meta code{font-family:var(--f-mono);font-size:11px;background:none;padding:0;color:var(--ink-2);word-break:break-all}
+
+/* GeoPilot: facts + real screenshots (added Nov 2026) */
+.gp-facts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:22px}
+.gp-facts span{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--glass);text-align:center}
+.gp-facts b{font-family:var(--f-display);font-size:22px;color:#fff;line-height:1.1}
+.gp-facts i{font-style:normal;font-size:12.5px;color:var(--ink-2)}
+.gp-shots-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 20px;margin:34px 0 14px}
+.gp-shots-head h3{margin:0;font-size:1.15rem}
+.gp-shots-head p{margin:0;color:var(--ink-2);font-size:14px}
+.gp-shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+.gp-shot{display:flex;flex-direction:column;gap:8px;padding:0;border:1px solid var(--line);border-radius:var(--r-md);background:var(--glass);overflow:hidden;cursor:pointer;color:inherit;font:inherit;text-align:center;transition:border-color .25s,transform .25s}
+.gp-shot:hover,.gp-shot:focus-visible{border-color:var(--k-gis);transform:translateY(-3px)}
+.gp-shot img{width:100%;aspect-ratio:300/420;object-fit:cover;object-position:50% 0;display:block}
+.gp-shot span{padding:0 10px 10px;font-size:13px;color:var(--ink-2)}
+@media (max-width:1100px){.gp-facts{grid-template-columns:repeat(3,minmax(0,1fr))}.gp-shots{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.gp-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.gp-shots{grid-template-columns:repeat(2,minmax(0,1fr))}}
