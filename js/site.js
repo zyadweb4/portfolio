@@ -201,8 +201,9 @@
   function lbOpen(trigger) {
     lbImgs = (trigger.getAttribute("data-images") || "").split(",").filter(Boolean);
     if (!lbImgs.length || !lb) return;
-    lbI = 0; lbFrom = trigger;
+    lbI = Math.min(parseInt(trigger.getAttribute("data-start"), 10) || 0, lbImgs.length - 1); lbFrom = trigger;
     var t = trigger.querySelector("[data-lb-title]"), d = trigger.querySelector("[data-lb-desc]");
+    if (!t && trigger.classList.contains("gp-shot")) t = { textContent: "GeoPilot" };
     $("#lb-title").textContent = t ? t.textContent : "";
     $("#lb-desc").textContent = d ? d.textContent : "";
     lbShow();
